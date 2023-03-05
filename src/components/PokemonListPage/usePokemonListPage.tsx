@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useMemo } from "react";
 
 const RESULTS_PER_PAGE = 20;
@@ -8,26 +9,27 @@ export type Pokemon = {
 };
 
 const usePokemonListPage = () => {
-  const [pokemon, setPokemon] = useState<Pokemon[]>([]);
   const [search, setSearch] = useState<string>("");
   const [page, setPage] = useState<number>(1);
 
   // the API does not have a search endpoint so we need to cache all of the pokemon before filtering and paginating
-  useEffect(() => {
+  const getAllPokemonQuery = useQuery<Pokemon[]>(["getAllPokemon"], () =>
     fetch("https://pokeapi.co/api/v2/pokemon/?limit=10000&offset=0")
       .then((response) => response.json())
-      .then((data) => {
-        setPokemon(data.results);
-      });
-  });
+      .then((data) => data.results)
+  );
 
   const filteredPokemon = useMemo(() => {
-    return pokemon.filter((singlePokemon) =>
-      singlePokemon.name.startsWith(search)
-    );
-  }, [pokemon, search]);
+    if (getAllPokemonQuery.isSuccess) {
+      const allPokemon = getAllPokemonQuery.data;
+      return allPokemon.filter((singlePokemon) =>
+        singlePokemon.name.startsWith(search)
+      );
+    }
+    return [];
+  }, [getAllPokemonQuery.data, getAllPokemonQuery.isSuccess, search]);
 
-  const pagesCount = Math.ceil(filteredPokemon.length / RESULTS_PER_PAGE);
+  const pagesCount = Math.ceil(filteredPokemon.length / RESULTS_PER_PAGE) || 1;
 
   const paginatedFilteredPokemon = useMemo(() => {
     const endIndex = page * RESULTS_PER_PAGE;
@@ -48,6 +50,7 @@ const usePokemonListPage = () => {
     search,
     setSearch,
     page,
+    isSuccess: getAllPokemonQuery.isSuccess,
   };
 };
 
